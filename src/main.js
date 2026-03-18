@@ -6,41 +6,161 @@ import { Application, Assets, Container, Sprite } from 'pixi.js';
   const app = new Application();
 
   // Initialize the application
-  await app.init({ background: '#1099bb', resizeTo: window });
+  await app.init({ background: '#066b66', resizeTo: window });
 
   // Append the application canvas to the document body
-  // document.body.appendChild(app.canvas);
   document.getElementById("pixi-container").appendChild(app.canvas);
 
-  // Create and add a container to the stage
-  const container = new Container();
+  // Load textures
+  const squirrelTexture = await Assets.load('/assets/squirrel.png');
+  const squirrelFlyTexture = await Assets.load('/assets/squirrel2.png');
+  const wallTexture = await Assets.load('/assets/wall.png');
 
-  app.stage.addChild(container);
+  // Create player
+  const squirrel = new Sprite(squirrelTexture);
+  squirrel.width = 100;
+  squirrel.height = 50;
+  squirrel.anchor.set(0.5);
+  squirrel.x = app.screen.width / 4;
+  squirrel.y = app.screen.height / 4;
+  app.stage.addChild(squirrel);
 
-  // Load the bunny texture
-  const texture = await Assets.load('/assets/bunny.png');
+  // Wall (top and bottom)
+  const wallTop = new Sprite(wallTexture);
+  const wallBottom = new Sprite(wallTexture);
 
-  // Create a 5x5 grid of bunnies in the container
-  for (let i = 0; i < 25; i++) {
-    const bunny = new Sprite(texture);
+  wallTop.anchor.set(0, 0);
+  wallBottom.anchor.set(0, 0);
 
-    bunny.x = (i % 5) * 40;
-    bunny.y = Math.floor(i / 5) * 40;
-    container.addChild(bunny);
+  app.stage.addChild(wallTop);
+  app.stage.addChild(wallBottom);
+
+  // Game variables
+  let wallX = app.screen.width;
+  let dx = -1.5;
+
+  let playerY = squirrel.y;
+  let dy = 0;
+  let accelY = 0.01;
+
+  let Fly = false;
+  let Score = 0;
+  let finished = false;
+
+  const gapSize = 140; // constant distance between top and bottom
+
+  let selectedWall = 0;
+
+  let topGap = 0;
+  let bottomGap = 0;
+
+  function selectWall() {
+    const minTop = 50; // minimum space from top
+    const maxTop = app.screen.height - gapSize - 50; // keep within screen
+
+    topGap = Math.random() * (maxTop - minTop) + minTop;
+    bottomGap = topGap + gapSize;
   }
 
-  // Move the container to the center
-  container.x = app.screen.width / 2;
-  container.y = app.screen.height / 2;
+  function respawnWall() {
+    wallX = app.screen.width;
+    Score += 1;
+    if (Score % 5 === 0) dx -= 0.25;
+    selectWall();
+  }
 
-  // Center the bunny sprites in local container coordinates
-  container.pivot.x = container.width / 2;
-  container.pivot.y = container.height / 2;
+  // Initial wall
+  selectWall();
 
-  // Listen for animate update
-  app.ticker.add((time) => {
-    // Continuously rotate the container!
-    // * use delta to create frame-independent transform *
-    container.rotation -= 0.01 * time.deltaTime;
+  // Game loop
+  app.ticker.add(() => {
+    if (finished) return;
+
+    // Physics
+    accelY = Fly ? -0.05 : 0.02;
+    dy += accelY;
+    playerY += dy;
+
+    squirrel.y = playerY;
+
+    // Animate sprite
+    squirrel.texture = Fly ? squirrelFlyTexture : squirrelTexture;
+
+    // Wall movement
+    wallX += dx;
+
+    // const topGap = gaps[selectedWall][0];
+    // const bottomGap = gaps[selectedWall][1];
+
+    // Top wall
+    wallTop.x = wallX;
+    wallTop.y = 0;
+    wallTop.width = 50;
+    wallTop.height = topGap;
+
+    // Bottom wall
+    wallBottom.x = wallX;
+    wallBottom.y = bottomGap;
+    wallBottom.width = 50;
+    wallBottom.height = app.screen.height - bottomGap;
+
+    // Respawn
+    if (wallX < -50) {
+      respawnWall();
+    }
+
+    const margin = 5; // pixels of forgiveness
+    // Player bounds (shrunk)
+    const playerLeft = squirrel.x - squirrel.width / 2 + margin;
+    const playerRight = squirrel.x + squirrel.width / 2 - margin;
+    const playerTop = squirrel.y - squirrel.height / 2 + margin;
+    const playerBottom = squirrel.y + squirrel.height / 2 - margin;
+
+    // Wall bounds
+    const wallLeft = wallX;
+    const wallRight = wallX + 50;
+
+    // Horizontal overlap
+    const horizontalOverlap = playerRight > wallLeft && playerLeft < wallRight;
+
+    if (horizontalOverlap) {
+      if (playerTop < topGap || playerBottom > bottomGap) {
+        finished = true;
+        console.log("Game Over! Collided with Wall. Score:", Score);
+      }
+    }
+
+    // Ground collision
+    if (playerBottom > app.screen.height) {
+      finished = true;
+      console.log("Game Over! Collided with Ground. Score:", Score);
+    }
+
   });
+
+  /*
+  *
+  *INPUT HANDLERZ
+  *KEYBOARD & TOCUH
+  * 
+  */
+
+  // Keyboard
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'ArrowUp') Fly = true;
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowUp') Fly = false;
+  });
+
+  // Touch
+  window.addEventListener('touchstart', () => {
+    Fly = true;
+  });
+
+  window.addEventListener('touchend', () => {
+    Fly = false;
+  });
+
 })();
