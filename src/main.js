@@ -1,12 +1,14 @@
-// description: This example demonstrates how to use a Container to group and manipulate multiple sprites
-import { Application, Assets, Container, Sprite } from 'pixi.js';
+import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } from 'pixi.js';
 
 (async () => {
+
+  let gameState = "start"; // "start" | "playing" | "gameover"
+
   // Create a new application
   const app = new Application();
 
   // Initialize the application
-  await app.init({ background: '#066b66', resizeTo: window });
+  await app.init({ background: '#90fff9', resizeTo: window });
 
   // Append the application canvas to the document body
   document.getElementById("pixi-container").appendChild(app.canvas);
@@ -15,6 +17,54 @@ import { Application, Assets, Container, Sprite } from 'pixi.js';
   const squirrelTexture = await Assets.load('/assets/squirrel.png');
   const squirrelFlyTexture = await Assets.load('/assets/squirrel2.png');
   const wallTexture = await Assets.load('/assets/wall.png');
+
+  const scoreKey = "SQGL_HIGHSCORE";
+  const localHighscore = localStorage.getItem(scoreKey) ? localStorage.getItem(scoreKey) : 0;
+
+  const uiContainer = new Container();
+  app.stage.addChild(uiContainer);
+
+  // Title
+  const titleStyle = new TextStyle({
+    fontSize: 48,
+    fill: "#000000"
+  });
+
+  const titleText = new Text({
+    text: "Squirrel Glider\n\nHigh Score: "+localHighscore,
+    style: titleStyle
+  });
+
+  titleText.anchor.set(0.5);
+  titleText.x = app.screen.width / 2;
+  titleText.y = app.screen.height / 4;
+
+  uiContainer.addChild(titleText);
+
+  // Button
+  const button = new Graphics();
+  button.beginFill(0x00aa00);
+  button.drawRoundedRect(0, 0, 200, 60, 10);
+  button.endFill();
+
+  button.x = app.screen.width / 2 - 100;
+  button.y = app.screen.height / 1.3;
+
+  button.eventMode = 'static';
+  button.cursor = 'pointer';
+
+  // Button text
+  const buttonText = new Text({
+    text: "Start",
+    style: new TextStyle({ fontSize: 24, fill: "#ffffff" })
+  });
+
+  buttonText.anchor.set(0.5);
+  buttonText.x = button.x + 100;
+  buttonText.y = button.y + 30;
+
+  uiContainer.addChild(button);
+  uiContainer.addChild(buttonText);
 
   // Create player
   const squirrel = new Sprite(squirrelTexture);
@@ -47,12 +97,16 @@ import { Application, Assets, Container, Sprite } from 'pixi.js';
   let Score = 0;
   let finished = false;
 
+  let endText = "";
+
   const gapSize = 140; // constant distance between top and bottom
-
-  let selectedWall = 0;
-
   let topGap = 0;
   let bottomGap = 0;
+
+  //Hide walls at start
+  squirrel.visible = false;
+  wallTop.visible = false;
+  wallBottom.visible = false;
 
   function selectWall() {
     const minTop = 50; // minimum space from top
@@ -69,12 +123,58 @@ import { Application, Assets, Container, Sprite } from 'pixi.js';
     selectWall();
   }
 
-  // Initial wall
-  selectWall();
+  function startGame() {
+    gameState = "playing";
+
+    // Reset UI text
+    titleText.text = "Squirrel Glider";
+    uiContainer.visible = false;
+
+    playerY = app.screen.height / 2;
+    dy = 0;
+    Score = 0;
+    finished = false;
+
+    wallX = app.screen.width;
+    dx = -2.0;
+
+    selectWall();
+    squirrel.visible = true;
+    wallTop.visible = true;
+    wallBottom.visible = true;
+  }
+
+  function showGameOver() {
+    gameState = "gameover";
+
+    //Update localHighscore if required
+    if (localHighscore >= Score){
+      endText = "Game Over\n\nScore:" + Score;
+    } else {
+      localStorage.setItem(scoreKey, Score);
+      endText = "Game Over\n\nNew High Score:" + Score;
+    }
+
+    // Update UI text
+    titleText.text = endText;
+
+    // Show UI
+    uiContainer.visible = true;
+
+    // Hide walls & squirrel
+    squirrel.visible = false;
+    wallTop.visible = false;
+    wallBottom.visible = false;
+  }
 
   // Game loop
   app.ticker.add(() => {
-    if (finished) return;
+    if (gameState !== "playing") return;
+
+    if (finished) {
+      showGameOver();
+      return;
+    }
 
     // Physics
     accelY = Fly ? -0.05 : 0.02;
@@ -88,9 +188,6 @@ import { Application, Assets, Container, Sprite } from 'pixi.js';
 
     // Wall movement
     wallX += dx;
-
-    // const topGap = gaps[selectedWall][0];
-    // const bottomGap = gaps[selectedWall][1];
 
     // Top wall
     wallTop.x = wallX;
@@ -161,6 +258,11 @@ import { Application, Assets, Container, Sprite } from 'pixi.js';
 
   window.addEventListener('touchend', () => {
     Fly = false;
+  });
+
+  //UI Buttons
+  button.on('pointerdown', () => {
+    startGame();
   });
 
 })();
