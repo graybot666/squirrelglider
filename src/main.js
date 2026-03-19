@@ -14,9 +14,9 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   document.getElementById("pixi-container").appendChild(app.canvas);
 
   // Load textures
-  const squirrelTexture = await Assets.load('/assets/squirrel.png');
-  const squirrelFlyTexture = await Assets.load('/assets/squirrel2.png');
-  const wallTexture = await Assets.load('/assets/wall.png');
+  const squirrelTexture = await Assets.load('./assets/squirrel.png');
+  const squirrelFlyTexture = await Assets.load('./assets/squirrel2.png');
+  const wallTexture = await Assets.load('./assets/wall.png');
 
   const scoreKey = "SQGL_HIGHSCORE";
   const localHighscore = localStorage.getItem(scoreKey) ? localStorage.getItem(scoreKey) : 0;
