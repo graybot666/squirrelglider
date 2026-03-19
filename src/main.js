@@ -2,7 +2,28 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
 
 (async () => {
 
+  // State Variables
   let gameState = "start"; // "start" | "playing" | "gameover"
+  let endText = "";
+  let finished = false;
+
+  //Wall Sizing
+  const gapSize = 140; // constant distance between top and bottom
+  let topGap = 0;
+  let bottomGap = 0;
+
+  //Game Variables
+  let dx = 0;
+  let dy = 0;
+  let Score = 0;
+
+  //Jump Settings
+  const gravity = 0.01;
+  const maxFallSpeed = 0.5;
+  const jumpStrength = -0.5;
+  
+  // Pixels of forgiveness - used to calculate player bounds
+  const playerErrorMargin = 5;
 
   // Create a new application
   const app = new Application();
@@ -19,7 +40,7 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   const wallTexture = await Assets.load('./assets/wall.png');
 
   const scoreKey = "SQGL_HIGHSCORE";
-  const localHighscore = localStorage.getItem(scoreKey) ? localStorage.getItem(scoreKey) : 0;
+  let localHighscore = Number(localStorage.getItem(scoreKey)) || 0;
 
   const uiContainer = new Container();
   app.stage.addChild(uiContainer);
@@ -78,32 +99,15 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   // Wall (top and bottom)
   const wallTop = new Sprite(wallTexture);
   const wallBottom = new Sprite(wallTexture);
-
   wallTop.anchor.set(0, 0);
   wallBottom.anchor.set(0, 0);
-
   app.stage.addChild(wallTop);
   app.stage.addChild(wallBottom);
 
-  // Game variables
   let wallX = app.screen.width;
-  let dx = -1.5;
-
   let playerY = squirrel.y;
-  let dy = 0;
-  let accelY = 0.01;
 
-  let Fly = false;
-  let Score = 0;
-  let finished = false;
-
-  let endText = "";
-
-  const gapSize = 140; // constant distance between top and bottom
-  let topGap = 0;
-  let bottomGap = 0;
-
-  //Hide walls at start
+  //Hide walls & squirrel at start
   squirrel.visible = false;
   wallTop.visible = false;
   wallBottom.visible = false;
@@ -116,28 +120,39 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
     bottomGap = topGap + gapSize;
   }
 
+  function flap() {
+    if (gameState !== "playing")
+      return;
+
+    dy = jumpStrength;
+    squirrel.texture = squirrelFlyTexture;
+  }
+
   function respawnWall() {
     wallX = app.screen.width;
     Score += 1;
-    if (Score % 5 === 0) dx -= 0.25;
     selectWall();
+
+    if (Score % 5 === 0)
+      dx -= 0.25;
   }
 
   function startGame() {
     gameState = "playing";
+    finished = false;
 
     // Reset UI text
     titleText.text = "Squirrel Glider";
     uiContainer.visible = false;
 
+    //Setup Initial Values
     playerY = app.screen.height / 2;
     dy = 0;
     Score = 0;
-    finished = false;
-
     wallX = app.screen.width;
     dx = -2.0;
 
+    //Show walls & squirrel then start game
     selectWall();
     squirrel.visible = true;
     wallTop.visible = true;
@@ -149,16 +164,15 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
 
     //Update localHighscore if required
     if (localHighscore >= Score){
-      endText = "Game Over\n\nScore:" + Score;
+      endText = "Game Over\n\nScore: " + Score + "\nHigh Score: " + localHighscore;
     } else {
       localStorage.setItem(scoreKey, Score);
-      endText = "Game Over\n\nNew High Score:" + Score;
+      localHighscore = Score;
+      endText = "Game Over\n\nNew High Score: " + Score;
     }
 
-    // Update UI text
+    // Update UI text & show
     titleText.text = endText;
-
-    // Show UI
     uiContainer.visible = true;
 
     // Hide walls & squirrel
@@ -176,15 +190,12 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
       return;
     }
 
-    // Physics
-    accelY = Fly ? -0.05 : 0.02;
-    dy += accelY;
+    // Physics - Constant gravity
+    dy += gravity;
+    dy = Math.min(dy, maxFallSpeed);
+    dy = Math.max(dy, jumpStrength);
     playerY += dy;
-
     squirrel.y = playerY;
-
-    // Animate sprite
-    squirrel.texture = Fly ? squirrelFlyTexture : squirrelTexture;
 
     // Wall movement
     wallX += dx;
@@ -206,31 +217,40 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
       respawnWall();
     }
 
-    const margin = 5; // pixels of forgiveness
+    // Reset to normal texture when falling
+    if (dy > 0) {
+      squirrel.texture = squirrelTexture;
+    }
+
     // Player bounds (shrunk)
-    const playerLeft = squirrel.x - squirrel.width / 2 + margin;
-    const playerRight = squirrel.x + squirrel.width / 2 - margin;
-    const playerTop = squirrel.y - squirrel.height / 2 + margin;
-    const playerBottom = squirrel.y + squirrel.height / 2 - margin;
+    const playerLeft = squirrel.x - squirrel.width / 2 + playerErrorMargin;
+    const playerRight = squirrel.x + squirrel.width / 2 - playerErrorMargin;
+    const playerTop = squirrel.y - squirrel.height / 2 + playerErrorMargin;
+    const playerBottom = squirrel.y + squirrel.height / 2 - playerErrorMargin;
 
     // Wall bounds
     const wallLeft = wallX;
     const wallRight = wallX + 50;
 
-    // Horizontal overlap
+    // Wall Collision
     const horizontalOverlap = playerRight > wallLeft && playerLeft < wallRight;
-
     if (horizontalOverlap) {
       if (playerTop < topGap || playerBottom > bottomGap) {
         finished = true;
-        console.log("Game Over! Collided with Wall. Score:", Score);
+        // console.log("Game Over! Collided with Wall. Score:", Score);
       }
     }
 
-    // Ground collision
+    // Ground Collision
     if (playerBottom > app.screen.height) {
       finished = true;
-      console.log("Game Over! Collided with Ground. Score:", Score);
+      // console.log("Game Over! Collided with Ground. Score:", Score);
+    }
+
+    // Sky Collision
+    if (playerTop < 0) {
+      finished = true;
+      // console.log("Game Over! Collided with Sky. Score:", Score);
     }
 
   });
@@ -242,27 +262,29 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   * 
   */
 
-  // Keyboard
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'ArrowUp') Fly = true;
+  //Start Button
+  button.on('pointerdown', () => {
+    startGame();
   });
 
-  window.addEventListener('keyup', (e) => {
-    if (e.code === 'ArrowUp') Fly = false;
+  // Keyboard
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'ArrowUp' && !e.repeat) {
+      flap();
+    }
   });
 
   // Touch
+  let touchActive = false;
   window.addEventListener('touchstart', () => {
-    Fly = true;
+    if (!touchActive) {
+      flap();
+      touchActive = true;
+    }
   });
 
   window.addEventListener('touchend', () => {
-    Fly = false;
-  });
-
-  //UI Buttons
-  button.on('pointerdown', () => {
-    startGame();
+    touchActive = false;
   });
 
 })();
