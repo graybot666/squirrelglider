@@ -1,15 +1,48 @@
-body {
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
     margin: 0;
     padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
     color: rgba(255, 255, 255, 0.87);
-    background-color: #000000;
+    background-color: #0b0c10;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 #app {
     width: 100%;
+    height: 100dvh;
     height: 100vh;
     overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+#pixi-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+}
+
+#pixi-container canvas {
+    display: block;
+    max-width: 100vw;
+    max-height: 100dvh;
+    max-height: 100vh;
+    width: auto !important;
+    height: auto !important;
+    aspect-ratio: 450 / 750;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    border-radius: 8px;
+    touch-action: none;
 }

@@ -2,6 +2,10 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
 
 (async () => {
 
+  // Virtual / Logical Game Resolution (Consistent across Desktop and Mobile)
+  const GAME_WIDTH = 450;
+  const GAME_HEIGHT = 750;
+
   // State Variables
   let gameState = "start"; // "start" | "playing" | "gameover"
   let endText = "";
@@ -18,18 +22,24 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   let Score = 0;
 
   //Jump Settings
-  const gravity = 0.01;
-  const maxFallSpeed = 0.5;
-  const jumpStrength = -0.5;
+  const gravity = 0.1;
+  const maxFallSpeed = 2.5;
+  const jumpStrength = -3;
   
   // Pixels of forgiveness - used to calculate player bounds
-  const playerErrorMargin = 5;
+  const playerErrorMargin = 8;
 
   // Create a new application
   const app = new Application();
 
-  // Initialize the application
-  await app.init({ background: '#90fff9', resizeTo: window });
+  // Initialize the application with fixed logical size and crisp DPI scaling
+  await app.init({
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
+    background: '#90fff9',
+    resolution: Math.min(window.devicePixelRatio || 1, 2),
+    autoDensity: true,
+  });
 
   // Append the application canvas to the document body
   document.getElementById("pixi-container").appendChild(app.canvas);
@@ -42,44 +52,54 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   const scoreKey = "SQGL_HIGHSCORE";
   let localHighscore = Number(localStorage.getItem(scoreKey)) || 0;
 
-  const uiContainer = new Container();
-  app.stage.addChild(uiContainer);
-
-  // Title
+  //Text Styles
   const titleStyle = new TextStyle({
-    fontSize: 48,
+    fontSize: 30,
+    align: "center",
+    fontFamily: "Tahoma, sans-serif",
     fill: "#000000"
   });
 
+  const uiStyle = new TextStyle({
+    fontSize: 20,
+    align: "center",
+    fontFamily: "Serif, sans-serif",
+    fill: "#ffffff",
+    stroke: "#1b1b1b",
+    strokeThickness: 4
+  });
+
+  // Start Screen UI
+  const uiContainer = new Container();
+  app.stage.addChild(uiContainer);
+
   const titleText = new Text({
-    text: "Squirrel Glider\n\nHigh Score: "+localHighscore,
+    text: "Squirrel Glider\n\nPlayer's High Score: "+localHighscore,
     style: titleStyle
   });
 
   titleText.anchor.set(0.5);
-  titleText.x = app.screen.width / 2;
-  titleText.y = app.screen.height / 4;
+  titleText.x = GAME_WIDTH / 2;
+  titleText.y = GAME_HEIGHT / 4;
 
   uiContainer.addChild(titleText);
+  uiContainer.visible = true;
 
-  // Button
+  // Button & Button text
   const button = new Graphics();
   button.beginFill(0x00aa00);
   button.drawRoundedRect(0, 0, 200, 60, 10);
   button.endFill();
 
-  button.x = app.screen.width / 2 - 100;
-  button.y = app.screen.height / 1.3;
-
+  button.x = GAME_WIDTH / 2 - 100;
+  button.y = GAME_HEIGHT / 1.3;
   button.eventMode = 'static';
   button.cursor = 'pointer';
 
-  // Button text
   const buttonText = new Text({
     text: "Start",
-    style: new TextStyle({ fontSize: 24, fill: "#ffffff" })
+    style: new TextStyle(uiStyle)
   });
-
   buttonText.anchor.set(0.5);
   buttonText.x = button.x + 100;
   buttonText.y = button.y + 30;
@@ -87,13 +107,13 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   uiContainer.addChild(button);
   uiContainer.addChild(buttonText);
 
-  // Create player
+  // Create squirrel
   const squirrel = new Sprite(squirrelTexture);
-  squirrel.width = 100;
-  squirrel.height = 50;
+  squirrel.width = 90;
+  squirrel.height = 45;
   squirrel.anchor.set(0.5);
-  squirrel.x = app.screen.width / 4;
-  squirrel.y = app.screen.height / 4;
+  squirrel.x = GAME_WIDTH / 4;
+  squirrel.y = GAME_HEIGHT / 4;
   app.stage.addChild(squirrel);
 
   // Wall (top and bottom)
@@ -104,7 +124,7 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   app.stage.addChild(wallTop);
   app.stage.addChild(wallBottom);
 
-  let wallX = app.screen.width;
+  let wallX = GAME_WIDTH;
   let playerY = squirrel.y;
 
   //Hide walls & squirrel at start
@@ -112,9 +132,23 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   wallTop.visible = false;
   wallBottom.visible = false;
 
+  // Score UI Container
+  const scoreContainer = new Container();
+  app.stage.addChild(scoreContainer);
+
+  const scoreText = new Text({
+    style: uiStyle
+  });
+
+  scoreText.anchor.set(0.5);
+  scoreText.x = GAME_WIDTH / 2;
+  scoreText.y = 45;
+
+  scoreContainer.addChild(scoreText);
+
   function selectWall() {
     const minTop = 50; // minimum space from top
-    const maxTop = app.screen.height - gapSize - 50; // keep within screen
+    const maxTop = GAME_HEIGHT - gapSize - 50; // keep within screen
 
     topGap = Math.random() * (maxTop - minTop) + minTop;
     bottomGap = topGap + gapSize;
@@ -129,9 +163,12 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   }
 
   function respawnWall() {
-    wallX = app.screen.width;
+    wallX = GAME_WIDTH;
     Score += 1;
     selectWall();
+
+    //Update Score UI
+    scoreText.text = Score.toString();
 
     if (Score % 5 === 0)
       dx -= 0.25;
@@ -141,15 +178,19 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
     gameState = "playing";
     finished = false;
 
+    // Show Score Text
+    scoreText.text = "0";
+    scoreContainer.visible = true;
+
     // Reset UI text
     titleText.text = "Squirrel Glider";
     uiContainer.visible = false;
 
     //Setup Initial Values
-    playerY = app.screen.height / 2;
+    playerY = GAME_HEIGHT / 2;
     dy = 0;
     Score = 0;
-    wallX = app.screen.width;
+    wallX = GAME_WIDTH;
     dx = -2.0;
 
     //Show walls & squirrel then start game
@@ -173,7 +214,9 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
 
     // Update UI text & show
     titleText.text = endText;
+    titleText.style = titleStyle;
     uiContainer.visible = true;
+    scoreContainer.visible = false;
 
     // Hide walls & squirrel
     squirrel.visible = false;
@@ -210,7 +253,7 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
     wallBottom.x = wallX;
     wallBottom.y = bottomGap;
     wallBottom.width = 50;
-    wallBottom.height = app.screen.height - bottomGap;
+    wallBottom.height = GAME_HEIGHT - bottomGap;
 
     // Respawn
     if (wallX < -50) {
@@ -237,54 +280,57 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
     if (horizontalOverlap) {
       if (playerTop < topGap || playerBottom > bottomGap) {
         finished = true;
-        // console.log("Game Over! Collided with Wall. Score:", Score);
       }
     }
 
     // Ground Collision
-    if (playerBottom > app.screen.height) {
+    if (playerBottom > GAME_HEIGHT) {
       finished = true;
-      // console.log("Game Over! Collided with Ground. Score:", Score);
     }
 
     // Sky Collision
     if (playerTop < 0) {
       finished = true;
-      // console.log("Game Over! Collided with Sky. Score:", Score);
     }
 
   });
 
   /*
   *
-  *INPUT HANDLERZ
-  *KEYBOARD & TOCUH
+  * INPUT HANDLERS (Cross-Platform: Desktop Mouse/Keyboard & Mobile Touch)
   * 
   */
 
-  //Start Button
-  button.on('pointerdown', () => {
+  // Start Button (Pointerdown handles both mouse clicks and touch taps)
+  button.on('pointerdown', (e) => {
+    e.stopPropagation?.();
     startGame();
   });
 
-  // Keyboard
+  // Screen Taps / Clicks (Flap during gameplay on desktop or mobile)
+  app.stage.eventMode = 'static';
+  app.stage.hitArea = app.screen;
+  app.stage.on('pointerdown', () => {
+    if (gameState === "playing") {
+      flap();
+    }
+  });
+
+  // Desktop Keyboard (ArrowUp & Spacebar)
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'ArrowUp' && !e.repeat) {
+    if ((e.code === 'ArrowUp' || e.code === 'Space') && !e.repeat) {
+      e.preventDefault();
       flap();
     }
   });
 
-  // Touch
-  let touchActive = false;
-  window.addEventListener('touchstart', () => {
-    if (!touchActive) {
-      flap();
-      touchActive = true;
-    }
-  });
+  // Mobile Touch optimization (Prevents browser bounce / zoom / rubber-banding)
+  app.canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+  }, { passive: false });
 
-  window.addEventListener('touchend', () => {
-    touchActive = false;
-  });
+  app.canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+  }, { passive: false });
 
 })();
