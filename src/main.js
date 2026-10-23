@@ -45,9 +45,10 @@ import { Application, Assets, Text, TextStyle, Container, Graphics, Sprite } fro
   document.getElementById("pixi-container").appendChild(app.canvas);
 
   // Load textures
-  const squirrelTexture = await Assets.load('./assets/squirrel.png');
-  const squirrelFlyTexture = await Assets.load('./assets/squirrel2.png');
-  const wallTexture = await Assets.load('./assets/wall.png');
+  const baseUrl = (import.meta.env.BASE_URL || './').replace(/\/?$/, '/');
+  const squirrelTexture = await Assets.load(`${baseUrl}assets/squirrel.png`);
+  const squirrelFlyTexture = await Assets.load(`${baseUrl}assets/squirrel2.png`);
+  const wallTexture = await Assets.load(`${baseUrl}assets/wall.png`);
 
   const scoreKey = "SQGL_HIGHSCORE";
   let localHighscore = Number(localStorage.getItem(scoreKey)) || 0;
